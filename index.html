@@ -88,6 +88,66 @@
   .screen { display: none; flex-direction: column; gap: 16px; padding-top: 32px; }
   .screen.active { display: flex; }
 
+  /* ── API KEY SCREEN ── */
+  .apikey-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 32px 28px;
+  }
+  .apikey-card .icon {
+    width: 48px; height: 48px;
+    background: var(--accent-pale);
+    border-radius: 14px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 22px;
+    margin-bottom: 16px;
+  }
+  .apikey-card h2 {
+    font-family: 'Lora', serif;
+    font-size: 19px;
+    color: var(--accent);
+    margin-bottom: 8px;
+  }
+  .apikey-card p {
+    font-size: 13px;
+    color: var(--text-muted);
+    line-height: 1.6;
+    margin-bottom: 20px;
+  }
+  .apikey-input-wrap { position: relative; margin-bottom: 12px; }
+  .apikey-input-wrap input {
+    width: 100%;
+    padding: 12px 44px 12px 14px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    font-size: 13px;
+    font-family: 'Courier New', monospace;
+    color: var(--text);
+    background: var(--bg);
+    outline: none;
+    transition: border-color .2s;
+    letter-spacing: 0.5px;
+  }
+  .apikey-input-wrap input:focus { border-color: var(--accent); }
+  .apikey-input-wrap input::placeholder { font-family: 'DM Sans', sans-serif; letter-spacing: 0; color: var(--text-muted); }
+  .toggle-key {
+    position: absolute; right: 12px; top: 50%;
+    transform: translateY(-50%);
+    background: none; border: none; cursor: pointer;
+    color: var(--text-muted); font-size: 16px;
+    padding: 4px;
+  }
+  .apikey-note {
+    background: var(--accent-pale);
+    border-radius: var(--radius-sm);
+    padding: 10px 14px;
+    font-size: 12px;
+    color: var(--accent);
+    line-height: 1.5;
+    margin-bottom: 20px;
+  }
+
   /* ── TCLE SCREEN ── */
   .tcle-card {
     background: var(--surface);
@@ -505,8 +565,25 @@
 
 <div class="container">
 
+  <!-- SCREEN 0: API KEY -->
+  <div class="screen active" id="screen-apikey">
+    <div class="apikey-card">
+      <div class="icon">🔑</div>
+      <h2>Configuração do teste</h2>
+      <p>Esta é uma versão de teste. Cole sua chave da API Anthropic para ativar o assistente. A chave fica apenas na memória do navegador e nunca é salva.</p>
+      <div class="apikey-input-wrap">
+        <input type="password" id="apikey-input" placeholder="sk-ant-api03-...">
+        <button class="toggle-key" id="toggle-key-btn" title="Mostrar/ocultar">👁</button>
+      </div>
+      <div class="apikey-note">
+        💡 Acesse <strong>console.anthropic.com → API Keys</strong> para gerar sua chave. Ela começa com <code>sk-ant-</code>
+      </div>
+      <button class="btn btn-primary" id="btn-save-apikey" disabled>Confirmar e continuar →</button>
+    </div>
+  </div>
+
   <!-- SCREEN 1: TCLE -->
-  <div class="screen active" id="screen-tcle">
+  <div class="screen" id="screen-tcle">
     <div class="tcle-card">
       <div class="tcle-header">
         <h2>Termo de Consentimento</h2>
@@ -633,9 +710,9 @@
 
 <script>
 // ══════════════════════════════════════════════════
-// CONFIG — troque pela chave real antes de publicar
+// CONFIG
 // ══════════════════════════════════════════════════
-const CLAUDE_API_KEY = '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';
+let CLAUDE_API_KEY = ''; // preenchido pelo usuário na tela de configuração
 const MODEL = 'claude-sonnet-4-5';
 
 // ══════════════════════════════════════════════════
@@ -1009,6 +1086,23 @@ async function sendToClaudeAPIWrapped(userMessage) {
 // ══════════════════════════════════════════════════
 // EVENT LISTENERS
 // ══════════════════════════════════════════════════
+
+// API KEY SCREEN
+const apikeyInput = document.getElementById('apikey-input');
+const btnSaveKey = document.getElementById('btn-save-apikey');
+
+apikeyInput.addEventListener('input', () => {
+  btnSaveKey.disabled = apikeyInput.value.trim().length < 20;
+});
+
+document.getElementById('toggle-key-btn').addEventListener('click', () => {
+  apikeyInput.type = apikeyInput.type === 'password' ? 'text' : 'password';
+});
+
+btnSaveKey.addEventListener('click', () => {
+  CLAUDE_API_KEY = apikeyInput.value.trim();
+  showScreen('screen-tcle');
+});
 
 // TCLE checkboxes
 ['tcle-check1','tcle-check2'].forEach(id => {
