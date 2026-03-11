@@ -1129,7 +1129,8 @@ document.getElementById('session-code-display').addEventListener('click', functi
 
 // Começar chat
 document.getElementById('btn-start-chat').addEventListener('click', () => {
-  startChat(state.sessionCode, false);
+  showScreen('screen-chat');
+  document.getElementById('session-code-label').textContent = `Sessão: ${state.sessionCode}`;
   sendToClaudeAPIWrapped('__INICIAR__');
 });
 
