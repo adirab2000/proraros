@@ -708,12 +708,41 @@
 
 <div class="toast" id="toast"></div>
 
+<!-- BOTÃO DEBUG — remover antes de produção -->
+<div style="position:fixed; bottom:16px; right:16px; z-index:999;">
+  <button onclick="debugEnviarPlanilha()" style="background:#e74c3c; color:white; border:none; padding:8px 14px; border-radius:8px; font-size:12px; cursor:pointer; opacity:0.7;">
+    🧪 Testar planilha
+  </button>
+</div>
+
 <script>
 // ══════════════════════════════════════════════════
 // CONFIG
 // ══════════════════════════════════════════════════
 let CLAUDE_API_KEY = ''; // preenchido pelo usuário na tela de configuração
 const MODEL = 'claude-sonnet-4-5';
+
+// ══════════════════════════════════════════════════
+// DEBUG — remover antes de produção
+// ══════════════════════════════════════════════════
+async function debugEnviarPlanilha() {
+  showToast('Enviando dados de teste para planilha...');
+  const dadosFake = {
+    idade: 'TESTE-28',
+    sexo: 'Feminino',
+    regiao: 'São Paulo',
+    ancestralidade: 'Italiana e portuguesa',
+    tempo_sintomas: '6 meses',
+    sintomas_principais: 'Fadiga, dores articulares, manchas na pele',
+    padrao_sintomas: 'Sintomas recorrentes e progressivos',
+    historico_infancia: 'Infecções frequentes, hospitalização aos 3 anos',
+    historico_familiar: 'Tia com lúpus, avó com artrite reumatoide',
+    estilo_vida: 'Sono irregular, sedentária',
+    grupos_investigacao: ['Doenças do tecido conjuntivo', 'Erros inatos da imunidade']
+  };
+  await enviarParaPlanilha(dadosFake);
+  showToast('✅ Enviado! Confira a planilha.');
+}
 
 // ══════════════════════════════════════════════════
 // ESTADO
