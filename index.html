@@ -871,6 +871,15 @@ function parseAIResponse(text) {
     }
   }
 
+  // Fallback: detecta encerramento pela mensagem de closing mesmo sem [ETAPA:FIM]
+  if (!state.finished && (
+    text.includes('não substitui avaliação médica') ||
+    text.includes('Obrigado por confiar na PRORAROS') ||
+    text.includes('Obrigada por confiar na PRORAROS')
+  )) {
+    state.finished = true;
+  }
+
   // Remove qualquer bloco [RESUMO:...] que a IA ainda possa gerar — não exibe pro usuário
   cleanText = cleanText.replace(/\[RESUMO:[\s\S]*?\]/g, '').trim();
 
