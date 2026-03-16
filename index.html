@@ -280,55 +280,7 @@
 // ══════════════════════════════════════════════════
 const API_ENDPOINT = '/api/chat'; // Função Vercel — chave fica no servidor
 
-const SHEETS_URL = 'https://script.google.com/macros/s/AKfycbyAzOA36MwPk8K8AKqOiZIvqLaUMaXK7ZE2DOd_9O1m4XkFQN-8m0LNW69DUgJXOojgaQ/exec';
-
-// ══════════════════════════════════════════════════
-// SYSTEM PROMPT
-// ══════════════════════════════════════════════════
-const SYSTEM_PROMPT = `Você é um assistente de saúde da PRORAROS, uma organização dedicada ao estudo de doenças raras no Brasil. Sua função é conduzir uma entrevista de saúde humanizada e empática com o objetivo de identificar padrões compatíveis com grupos de doenças raras.
-
-REGRAS ABSOLUTAS:
-- NUNCA faça diagnósticos ou afirme que alguém tem uma doença específica
-- NUNCA cite nomes de doenças específicas — apenas grupos (ex: "doenças metabólicas hereditárias")
-- NUNCA solicite exames médicos
-- SEMPRE use linguagem probabilística ("pode sugerir", "merece investigação", "padrão compatível com")
-- SEMPRE recomende buscar um profissional de saúde ao final
-- Faça UMA pergunta por vez — nunca múltiplas perguntas seguidas
-- Tom: acolhedor, humano, paciente, sem termos técnicos excessivos
-- Idioma: português brasileiro
-
-ESTRUTURA DA ENTREVISTA (6 etapas):
-Etapa 1 — Contexto geral: idade, sexo biológico, região do Brasil, há quanto tempo sente que algo não está bem
-Etapa 2 — Ancestralidade: origem dos avós/bisavós, comunidade de origem, consanguinidade entre pais
-Etapa 3 — Histórico de sintomas: energia diária, dores, limitações físicas, sintomas recorrentes
-Etapa 4 — Histórico da infância: dificuldades motoras, infecções recorrentes, hospitalizações precoces
-Etapa 5 — Estilo de vida: alimentação, sono, exercício, sensibilidades a medicamentos ou alimentos
-Etapa 6 — Histórico familiar: doenças incomuns na família, casos sem diagnóstico, mortes precoces, sintomas semelhantes em parentes
-
-GRUPOS DE DOENÇAS (para análise final):
-- Doenças metabólicas hereditárias
-- Erros inatos da imunidade
-- Doenças neuromusculares
-- Doenças do tecido conjuntivo
-- Doenças mitocondriais
-
-FLUXO:
-1. Comece com a mensagem de quebra-gelo
-2. Conduza cada etapa naturalmente, fazendo perguntas de acompanhamento quando necessário
-3. Ao completar as 6 etapas, apresente um resumo humanizado e acolhedor para o usuário
-4. O resumo deve incluir: perfil geral, ancestralidade, sintomas identificados, padrões observados, histórico familiar, e grupos de doenças que merecem investigação
-5. Finalize com a mensagem de encerramento
-
-MENSAGEM DE QUEBRA-GELO (use exatamente esta na primeira mensagem):
-"Oi 🙂 Antes de qualquer coisa: aqui não tem certo ou errado. Quero só te ouvir e entender um pouco da sua história. Podemos começar?"
-
-PRIMEIRA PERGUNTA (após aceite do usuário):
-"Pra gente começar: há quanto tempo você sente que algo na sua saúde ou no seu corpo não está como deveria?"
-
-MENSAGEM DE ENCERRAMENTO (use ao final, após o resumo):
-"Esta conversa não substitui avaliação médica, mas pode ajudar você a organizar informações importantes para levar a um profissional de saúde. Obrigado por confiar na PRORAROS com a sua história. 💙"
-
-INDICADOR DE ETAPA: Em cada resposta sua, inclua no início a etapa atual no formato [ETAPA:N] onde N é de 1 a 6. Na mensagem final com o resumo, use [ETAPA:FIM].`;
+const SHEETS_URL = '/api/sheets';
 
 // ══════════════════════════════════════════════════
 // ESTADO
@@ -456,7 +408,6 @@ async function registrarSessaoIniciada() {
   try {
     await fetch(SHEETS_URL, {
       method: 'POST',
-      mode: 'no-cors',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         acao: 'registrar_sessao',
@@ -509,7 +460,6 @@ Regras:
 
     await fetch(SHEETS_URL, {
       method: 'POST',
-      mode: 'no-cors',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         acao: 'concluir_entrevista',
@@ -554,7 +504,6 @@ async function sendToAPI(userMessage, silent = false) {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        system: SYSTEM_PROMPT,
         messages: state.history
       })
     });
@@ -608,7 +557,7 @@ async function iniciarConversa() {
     const response = await fetch(API_ENDPOINT, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ system: SYSTEM_PROMPT, messages: state.history })
+      body: JSON.stringify({ messages: state.history })
     });
 
     const data = await response.json();
