@@ -71,7 +71,7 @@ module.exports = async function handler(req, res) {
 
     // ── Conclui entrevista — salva dados estruturados ──
     if (acao === 'concluir_entrevista') {
-      const { codigo_sessao, ...dados } = req.body;
+      const { codigo_sessao, acao: _, ...dados } = req.body;
 
       // Atualiza status da sessão
       await fetch(
