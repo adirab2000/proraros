@@ -83,12 +83,14 @@ module.exports = async function handler(req, res) {
         }
       );
 
-      // Salva entrevista estruturada (upsert)
-      await fetch(`${SUPABASE_URL}/rest/v1/entrevistas`, {
+      // Salva entrevista estruturada
+      const insertResp = await fetch(`${SUPABASE_URL}/rest/v1/entrevistas`, {
         method: 'POST',
-        headers: { ...headers, 'Prefer': 'resolution=merge-duplicates' },
+        headers: { ...headers, 'Prefer': 'return=representation' },
         body: JSON.stringify({ codigo_sessao, ...dados })
       });
+      const insertResult = await insertResp.json();
+      console.log('Insert entrevista:', insertResp.status, JSON.stringify(insertResult));
 
       return res.status(200).json({ status: 'ok' });
     }
