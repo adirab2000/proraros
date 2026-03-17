@@ -278,9 +278,8 @@
 // ══════════════════════════════════════════════════
 // CONFIG
 // ══════════════════════════════════════════════════
-const API_ENDPOINT = '/api/chat'; // Função Vercel — chave fica no servidor
-
-const SHEETS_URL = '/api/sheets';
+const API_ENDPOINT = '/api/chat';
+const DB_ENDPOINT = '/api/db';
 
 // ══════════════════════════════════════════════════
 // ESTADO
@@ -389,7 +388,7 @@ function parseAIResponse(text) {
 }
 
 // ══════════════════════════════════════════════════
-// SESSÃO
+// SESSÃO LOCAL (cache em memória)
 // ══════════════════════════════════════════════════
 function saveSession() {
   sessions[state.sessionCode] = {
@@ -400,28 +399,34 @@ function saveSession() {
 }
 
 // ══════════════════════════════════════════════════
-// GOOGLE SHEETS — registro e envio de dados
+// BANCO DE DADOS — Supabase via função Vercel
 // ══════════════════════════════════════════════════
 
-// Chamado ao gerar o código — registra sessão como "iniciado"
-async function registrarSessaoIniciada() {
+async function dbCall(payload) {
   try {
-    await fetch(SHEETS_URL, {
+    const r = await fetch(DB_ENDPOINT, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        acao: 'registrar_sessao',
-        codigo_sessao: state.sessionCode,
-        status: 'iniciado'
-      })
+      body: JSON.stringify(payload)
     });
-    console.log('✅ Sessão registrada');
+    return await r.json();
   } catch (err) {
-    console.warn('⚠️ Erro ao registrar sessão:', err);
+    console.warn('⚠️ Erro no banco:', err);
+    return null;
   }
 }
 
-// Chamado ao fim da entrevista — extrai dados e atualiza status para "concluido"
+// Registra sessão ao aceitar TCLE
+async function registrarSessaoIniciada() {
+  await dbCall({ acao: 'registrar_sessao', codigo_sessao: state.sessionCode });
+}
+
+// Salva cada mensagem em tempo real
+async function salvarMensagem(role, content) {
+  await dbCall({ acao: 'salvar_mensagem', codigo_sessao: state.sessionCode, role, content });
+}
+
+// Extrai dados estruturados e conclui entrevista no banco
 async function extrairEEnviarDados() {
   const promptExtracao = `Com base na conversa acima, extraia os dados e retorne APENAS um JSON válido, sem texto antes ou depois, sem markdown:
 
@@ -430,7 +435,7 @@ async function extrairEEnviarDados() {
 Regras:
 - grupos_investigacao: array com 1 a 3 dos grupos: "Doenças metabólicas hereditárias", "Erros inatos da imunidade", "Doenças neuromusculares", "Doenças do tecido conjuntivo", "Doenças mitocondriais"
 - Sempre inclua pelo menos um grupo relevante
-- sono, alimentacao, exercicio: extraia separadamente do estilo de vida
+- sono, alimentacao, exercicio: extraia separadamente
 - Retorne SOMENTE o JSON`;
 
   try {
@@ -438,13 +443,9 @@ Regras:
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        messages: [
-          ...state.history,
-          { role: 'user', content: promptExtracao }
-        ]
+        messages: [...state.history, { role: 'user', content: promptExtracao }]
       })
     });
-
     const data = await response.json();
     const rawJson = data.content[0].text.trim().replace(/```json|```/g, '').trim();
     const d = JSON.parse(rawJson);
@@ -455,36 +456,30 @@ Regras:
         const papel = m.role === 'user' ? 'Usuário' : 'Assistente';
         const conteudo = m.role === 'assistant' ? m.content.replace(/\[ETAPA:\d+\]/g, '').trim() : m.content;
         return `${papel}: ${conteudo}`;
-      })
-      .join('\n\n');
+      }).join('\n\n');
 
-    await fetch(SHEETS_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        acao: 'concluir_entrevista',
-        codigo_sessao: state.sessionCode,
-        status: 'concluido',
-        idade: d.idade || '',
-        sexo: d.sexo || '',
-        regiao: d.regiao || '',
-        ancestralidade: d.ancestralidade || '',
-        tempo_sintomas: d.tempo_sintomas || '',
-        sintomas_principais: d.sintomas_principais || '',
-        padrao_sintomas: d.padrao_sintomas || '',
-        historico_infancia: d.historico_infancia || '',
-        historico_familiar: d.historico_familiar || '',
-        sono: d.sono || '',
-        alimentacao: d.alimentacao || '',
-        exercicio: d.exercicio || '',
-        grupos_investigacao: (d.grupos_investigacao || []).join(', '),
-        texto_completo: textoCompleto
-      })
+    await dbCall({
+      acao: 'concluir_entrevista',
+      codigo_sessao: state.sessionCode,
+      idade: d.idade || '',
+      sexo: d.sexo || '',
+      regiao: d.regiao || '',
+      ancestralidade: d.ancestralidade || '',
+      tempo_sintomas: d.tempo_sintomas || '',
+      sintomas_principais: d.sintomas_principais || '',
+      padrao_sintomas: d.padrao_sintomas || '',
+      historico_infancia: d.historico_infancia || '',
+      historico_familiar: d.historico_familiar || '',
+      sono: d.sono || '',
+      alimentacao: d.alimentacao || '',
+      exercicio: d.exercicio || '',
+      grupos_investigacao: (d.grupos_investigacao || []).join(', '),
+      texto_completo: textoCompleto
     });
 
-    console.log('✅ Entrevista concluída e enviada para planilha');
+    console.log('✅ Entrevista salva no banco');
   } catch (err) {
-    console.warn('⚠️ Erro ao enviar dados:', err);
+    console.warn('⚠️ Erro ao salvar entrevista:', err);
   }
 }
 
@@ -516,6 +511,7 @@ async function sendToAPI(userMessage, silent = false) {
     if (!silent) {
       state.history.push({ role: 'assistant', content: rawText });
       saveSession();
+      salvarMensagem('assistant', rawText); // salva no banco em tempo real
       removeTyping();
 
       const cleanText = parseAIResponse(rawText);
@@ -611,20 +607,48 @@ document.getElementById('btn-start-chat').addEventListener('click', () => {
   iniciarConversa();
 });
 
-// Retomar sessão
-document.getElementById('btn-resume').addEventListener('click', () => {
+// Retomar sessão — busca do banco
+document.getElementById('btn-resume').addEventListener('click', async () => {
   const code = document.getElementById('resume-input').value.trim().toUpperCase();
   if (!code) { showToast('Digite o código da sessão.'); return; }
-  const saved = sessions[code];
-  if (!saved) { showToast('Código não encontrado. Tente novamente.'); return; }
-  state = { sessionCode: code, history: [...saved.history], currentStage: saved.currentStage, finished: saved.finished };
+
+  showToast('Buscando sessão...');
+
+  const resultado = await dbCall({ acao: 'buscar_sessao', codigo_sessao: code });
+
+  if (!resultado || resultado.error) {
+    showToast('Código não encontrado. Verifique e tente novamente.');
+    return;
+  }
+
+  const { sessao, mensagens } = resultado;
+
+  // Reconstrói estado
+  state.sessionCode = code;
+  state.history = mensagens.map(m => ({ role: m.role, content: m.content }));
+  state.finished = sessao.status === 'concluido';
+  state.currentStage = 0;
+
   document.getElementById('session-code-label').textContent = `Sessão: ${code}`;
   showScreen('screen-chat');
-  saved.history.forEach(m => {
-    if (m.role === 'user' && m.content !== 'Olá, quero começar a entrevista.') appendMessage('user', m.content);
-    else if (m.role === 'assistant') appendMessage('ai', parseAIResponse(m.content));
+
+  // Reconstrói visual do chat
+  mensagens.forEach(m => {
+    if (m.role === 'user' && m.content !== 'Olá, quero começar a entrevista.') {
+      appendMessage('user', m.content);
+    } else if (m.role === 'assistant') {
+      appendMessage('ai', parseAIResponse(m.content));
+    }
   });
+
   updateStageDots(state.currentStage);
+
+  if (state.finished) {
+    document.getElementById('sendBtn').disabled = true;
+    document.getElementById('userInput').disabled = true;
+    document.getElementById('userInput').placeholder = 'Entrevista concluída';
+  }
+
   showToast('Sessão retomada ✓');
 });
 
@@ -636,6 +660,7 @@ document.getElementById('sendBtn').addEventListener('click', () => {
   appendMessage('user', text);
   input.value = '';
   input.style.height = 'auto';
+  salvarMensagem('user', text); // salva no banco em tempo real
   sendToAPI(text);
 });
 
