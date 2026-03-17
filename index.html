@@ -361,22 +361,24 @@ function removeTyping() {
 // ══════════════════════════════════════════════════
 // PARSE RESPOSTA DA IA
 // ══════════════════════════════════════════════════
-function parseAIResponse(text) {
+function parseAIResponse(text, updateState = false) {
   let cleanText = text;
 
   const stageMatch = text.match(/\[ETAPA:(\d+|FIM)\]/);
   if (stageMatch) {
     cleanText = cleanText.replace(stageMatch[0], '').trim();
-    if (stageMatch[1] === 'FIM') {
-      state.finished = true;
-    } else {
-      const stage = parseInt(stageMatch[1]) - 1;
-      state.currentStage = Math.max(state.currentStage, stage);
+    if (updateState) {
+      if (stageMatch[1] === 'FIM') {
+        state.finished = true;
+      } else {
+        const stage = parseInt(stageMatch[1]) - 1;
+        state.currentStage = Math.max(state.currentStage, stage);
+      }
     }
   }
 
   // Fallback: detecta encerramento pelas frases da mensagem final
-  if (!state.finished && (
+  if (updateState && !state.finished && (
     text.includes('não substitui avaliação médica') ||
     text.includes('Obrigado por confiar na PRORAROS') ||
     text.includes('Obrigada por confiar na PRORAROS')
@@ -514,11 +516,14 @@ async function sendToAPI(userMessage, silent = false) {
       salvarMensagem('assistant', rawText); // salva no banco em tempo real
       removeTyping();
 
-      const cleanText = parseAIResponse(rawText);
+      const cleanText = parseAIResponse(rawText, true); // atualiza state
       appendMessage('ai', cleanText);
       updateStageDots(state.currentStage);
 
+      console.log('Estado após resposta:', { finished: state.finished, stage: state.currentStage });
+
       if (state.finished) {
+        console.log('✅ Entrevista finalizada — disparando extração...');
         document.getElementById('sendBtn').disabled = true;
         document.getElementById('userInput').disabled = true;
         document.getElementById('userInput').placeholder = 'Entrevista concluída';
